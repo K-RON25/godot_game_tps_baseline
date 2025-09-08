@@ -22,6 +22,7 @@ var motion = Vector2()
 @onready var player_input = $InputSynchronizer
 @onready var animation_tree = $AnimationTree
 @onready var player_model = $PlayerModel
+
 @onready var shoot_from = player_model.get_node("Robot_Skeleton/Skeleton3D/GunBone/ShootFrom")
 @onready var crosshair = $Crosshair
 @onready var fire_cooldown = $FireCooldown
@@ -38,19 +39,28 @@ var motion = Vector2()
 
 @export var current_animation := ANIMATIONS.WALK
 
+# Load in the hud
+@export var hud_scene: PackedScene = preload("res://player/ui/hud/hud.tscn")
+var hud: HUD
+var hp_value := 100
+var ammo_current := 30
+var ammo_reserve := 120
+var score_value := 1000
+
 func _ready():
 	# Pre-initialize orientation transform.
 	orientation = player_model.global_transform
 	orientation.origin = Vector3()
-
-
+	
+	# Only the local player spawns a HUD on their machine
+	if is_multiplayer_authority() or !multiplayer.has_multiplayer_peer():
+		_spawn_hud()
 
 func _physics_process(delta: float):
 	if multiplayer.is_server():
 		apply_input(delta)
 	else:
 		animate(current_animation, delta)
-
 
 func animate(anim: int, delta:=0.0):
 	current_animation = anim
@@ -168,8 +178,7 @@ func apply_input(delta: float):
 	# If we're below -40, respawn (teleport to the initial position).
 	if transform.origin.y < -40:
 		transform.origin = initial_position
-
-
+	
 @rpc("call_local")
 func jump():
 	animate(ANIMATIONS.JUMP_UP)
@@ -203,3 +212,26 @@ func hit():
 @rpc("call_local")
 func add_camera_shake_trauma(amount):
 	player_input.camera_camera.add_trauma(amount)
+
+func _spawn_hud() -> void:
+	if hud_scene == null:
+		push_warning("HUD scene is not assigned!")
+		return
+
+	hud = hud_scene.instantiate() as HUD
+
+	# Where to add it?
+	# 1) Add to the current scene root (typical for UI overlays)
+	if get_tree().current_scene:
+		get_tree().current_scene.add_child(hud)
+	else:
+		# Fallback: attach to the player's viewport so it still renders
+		get_viewport().add_child(hud)
+
+	# Optional: if you have lots of UI, set draw layer to keep it above others
+	# hud.layer = 1
+
+	# Initialize what the player should see
+	hud.set_hp(hp_value)
+	hud.set_ammo(ammo_current, ammo_reserve)
+	hud.set_score(score_value)
