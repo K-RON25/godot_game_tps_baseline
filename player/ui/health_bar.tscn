@@ -1,0 +1,37 @@
+[gd_scene load_steps=2 format=3 uid="uid://dwdeo01tupbkq"]
+
+[ext_resource type="Script" uid="uid://bfxndoeuadb5r" path="res://player/ui/health_bar.gd" id="1_wbvym"]
+
+[node name="HealthBar" type="CanvasLayer"]
+script = ExtResource("1_wbvym")
+margin = 16
+
+[node name="Root" type="Control" parent="."]
+clip_contents = true
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="Panel" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+offset_left = 1920.0
+offset_top = 1080.0
+offset_right = 1920.0
+offset_bottom = 1080.0
+
+[node name="Bar" type="ProgressBar" parent="Root/Panel"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 4.0
+offset_bottom = 27.0
+
+[node name="Value" type="Label" parent="Root/Panel"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 62.0
+offset_bottom = 23.0
+text = "100/100"
