@@ -103,32 +103,43 @@ func hit():
 			queue_free()
 
 
-func shoot():
-	var gt = ray_from.global_transform
-	var ray_origin = ray_from.global_transform.origin
-	var ray_dir = -gt.basis.z
-	var max_dist = 1000
+func shoot() -> void:
+	var gt: Transform3D = ray_from.global_transform
+	var ray_origin: Vector3 = gt.origin
+	var ray_dir: Vector3 = -gt.basis.z
+	var max_dist: float = 1000.0
 
-	var col = get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(ray_origin, ray_origin + ray_dir * max_dist, 0xFFFFFFFF, [self] ))
+	# Forward ray for beam clipping (can keep world mask if you want)
+	var fwd_q := PhysicsRayQueryParameters3D.create(
+		ray_origin, ray_origin + ray_dir * max_dist, 0xFFFFFFFF, [self]
+	)
+	var col := get_world_3d().direct_space_state.intersect_ray(fwd_q)
 	if not col.is_empty():
 		max_dist = ray_origin.distance_to(col.position)
-		if col.collider == player:
-			pass # Kill.
-	# Clip ray in shader.
+
+	# ---- LOS ray: only look for the Player layer ----
+	if player and player is Player:
+		var chest: Vector3 = (player as Node3D).global_transform.origin + Vector3(0, 1.2, 0)
+		var los_q := PhysicsRayQueryParameters3D.create(
+			ray_origin, chest, laser_raycast.collision_mask, [self]
+		)
+		var los := get_world_3d().direct_space_state.intersect_ray(los_q)
+
+		if !los.is_empty():
+			if los.collider == player and multiplayer.is_server():
+				player.hit(randi_range(1,10)) # <- your Player.hit(dmg) subtracts health
+
+	# Clip beam & spawn impact FX
 	_clip_ray(max_dist)
-	# Position laser ember particles
-	var mesh_offset = ray_mesh.position.z
-	var laser_ember = $RedRobotModel/Armature/Skeleton3D/RayFrom/LaserEmber
+	var mesh_offset: float = float(ray_mesh.position.z)
+	var laser_ember := $RedRobotModel/Armature/Skeleton3D/RayFrom/LaserEmber
 	laser_ember.position = Vector3(0.0, 0.0, -max_dist / 2.0 - mesh_offset)
 	laser_ember.emission_box_extents.z = (max_dist - abs(mesh_offset)) / 2.0
-	if not col.is_empty():
-		var blast = blast_scene.instantiate()
-		get_tree().get_root().add_child(blast)
-		blast.global_transform.origin = col.position
-		if col.collider == player and player is Player:
-			await get_tree().create_timer(0.1).timeout
-			player.add_camera_shake_trauma(13)
 
+	if not col.is_empty():
+		var blast := blast_scene.instantiate()
+		get_tree().root.add_child(blast)
+		blast.global_transform.origin = col.position
 
 func animate(delta:=0.0):
 	if state == State.APPROACH:

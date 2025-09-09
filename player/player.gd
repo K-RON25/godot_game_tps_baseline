@@ -42,10 +42,18 @@ var motion = Vector2()
 # Load in the hud
 @export var hud_scene: PackedScene = preload("res://player/ui/hud/hud.tscn")
 var hud: HUD
-var hp_value := 100
-var ammo_current := 30
-var ammo_reserve := 120
-var score_value := 1000
+
+# Hud values
+## Health
+@export var health := 100
+@export var dead := false
+
+## Ammo
+var ammo_current := 30 ### placeholder, needs logic
+var ammo_reserve := 120 ### placeholder, needs logic
+
+## Score
+var score_value := 1000 ### placeholder, needs logic
 
 func _ready():
 	# Pre-initialize orientation transform.
@@ -205,8 +213,24 @@ func shoot():
 
 
 @rpc("call_local")
-func hit():
-	add_camera_shake_trauma(.75)
+func hit(dmg: int = 1) -> void:
+	add_camera_shake_trauma(0.75)
+	if dead:
+		return
+
+	health = max(health - int(dmg), 0)
+
+	# Update your HUD (you’re using hud.set_hp elsewhere)
+	if hud:
+		hud.set_hp(health)
+
+	if health == 0:
+		dead = true
+		animation_tree.active = false
+		player_model.visible = false
+		if multiplayer.is_server():
+			await get_tree().create_timer(10.0).timeout
+			queue_free()
 
 
 @rpc("call_local")
@@ -232,6 +256,6 @@ func _spawn_hud() -> void:
 	# hud.layer = 1
 
 	# Initialize what the player should see
-	hud.set_hp(hp_value)
+	hud.set_hp(health)
 	hud.set_ammo(ammo_current, ammo_reserve)
 	hud.set_score(score_value)
